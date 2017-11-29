@@ -1,0 +1,41 @@
+div#options {
+    float: right;
+}
+
+#local-coords circle {
+    stroke: #8AD;
+    /* TODO stroke-width */
+}
+#local-coords circle.zenith {
+    stroke: none;
+    fill: #8AD;
+}
+
+#yearGrade .seasons line {
+    stroke: #AAA;
+    stroke-width: 0.008;
+}
+#yearGrade .seasons line.vernal { stroke: #F457FF; }
+#yearGrade .seasons line.winter { stroke: #57CFFF; }
+#yearGrade .seasons line.autumn { stroke: #ff9457; }
+#yearGrade .seasons line.summer { stroke: #78ff57; }
+
+#hourGrade line,
+#hourGrade circle,
+#yearGrade .month line,
+#yearGrade circle {
+    stroke: #000;
+    stroke-width: 0.002;
+    fill: none;
+}
+
+#yearGrade .month line.jan {
+    stroke: #D00;
+}
+
+.hand {
+    stroke: #333;
+    stroke-width: 0.01;
+    stroke-linecap: round;
+    fill: #333;
+}
