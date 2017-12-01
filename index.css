@@ -39,3 +39,8 @@ div#options {
     stroke-linecap: round;
     fill: #333;
 }
+#alarms .hand {
+    stroke: #777;
+    stroke-width: 0.008;
+    fill: #777;
+}

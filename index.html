@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
 
     <script type="text/javascript" src="lib/moment.min.js"></script>
-    
+
+    <script type="text/javascript" src="maths.js"></script>
     <script type="text/javascript" src="pinout.js"></script>
     <script type="text/javascript" src="index.js"></script>
     <link rel="stylesheet" href="index.css">
@@ -18,6 +19,18 @@
     <div id="geolocation">
         <input type=number step=any min=-90 max=90 name=lat placeholder="Latitude"/>
         <input type=number step=any min=-180 max=180 name=lon placeholder="Longitude"/>
+    </div>
+    <div id="alarm-configs">
+        <form class="alarm">
+            <label>Enable: <input type=checkbox name=enable checked /></label>
+            <br/>
+            <label>Alarm time: <input type=text name=time /></label>
+            <label>&pm; <input type=number min=0 max=20 name=diff_time /></label>
+            <br/>
+            <label>Pre-alarm (min): <input type=number min=0 max=60 name=prealarm /></label>
+            <label>&pm; <input type=number min=0 max=20 name=diff_prealarm /></label>
+            
+        </form>
     </div>
 </div>
 <svg id="clock" width=500 height=500 viewbox="-1.1 -1.1 2.2 2.2">
