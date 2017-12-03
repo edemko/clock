@@ -4,12 +4,18 @@ document.addEventListener("DOMContentLoaded", function () {
 })
 
 document.addEventListener("PinoutReady", function () {
+    var sound = new Audio("tng_bridge_1.mp3") // FIXME move into pinout
+
+
     function update(time) {
         pinout.cycles.day.time = time
         pinout.cycles.week.time = time
         pinout.cycles.year.time = time
         pinout.classic.time = time
-        if (time.getHours() === alarmTime.getHours()
+        var alarmTime = pinout.alarm_config.time
+        if (alarmTime !== null
+            && pinout.alarm_config.state === "primed"
+            && time.getHours() === alarmTime.getHours()
             && time.getMinutes() === alarmTime.getMinutes()) {
             if (sound.paused) { // FIXME the alarm deserves a real state machine with a real design
                 sound.play()
@@ -22,7 +28,6 @@ document.addEventListener("PinoutReady", function () {
         pinout.here.draw_local_coords()
     })
 
-    var sound = new Audio("tng_bridge_1.mp3")
     pinout.now._elem.addEventListener("click", function () {
         if (sound.paused) {
             sound.play()
@@ -33,9 +38,11 @@ document.addEventListener("PinoutReady", function () {
         }
     })
 
-    var alarmTime = new Date()
-    alarmTime.setHours(7, 30, 0, 0)
-    pinout.alarm.add(alarmTime)
+
+    pinout.alarm_config._elem.time.addEventListener('input', function () {
+        pinout.alarm.time = pinout.alarm_config.time
+    })
+    pinout.alarm.time = pinout.alarm_config.time
 
     update(new Date())
     window.setInterval(function () { update(new Date()) }, 1000)

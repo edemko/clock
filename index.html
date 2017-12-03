@@ -22,7 +22,13 @@
     </div>
     <div id="alarm-configs">
         <form class="alarm">
-            <label>Enable: <input type=checkbox name=enable checked /></label>
+            <div>
+                <input type=radio name=state value=stored checked />
+                <input type=radio name=state value=primed />
+                <input type=radio name=state value=active />
+                <input type=radio name=state value=snooze />
+            </div>
+            <button name=enable>Enable</button>
             <br/>
             <label>Alarm time: <input type=text name=time /></label>
             <label>&pm; <input type=number min=0 max=20 name=diff_time /></label>

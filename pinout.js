@@ -45,21 +45,72 @@ here: (function(){
 
 alarm: (function(){
     var self = {
-        // _configElems: document.querySelector("#alarm-config"), // TODO
         _drawElems: document.querySelector("#alarms"),
-        add: function (time) {
-            // TODO reusable make svg element
-            var svgns = "http://www.w3.org/2000/svg"
-            var shape = document.createElementNS(svgns, "path")
-            shape.setAttribute("d", "M0.004,0 L0,0.8 L-0.004,0 Z")
-            shape.setAttribute("transform", "rotate("+360*percentFromMidnight(time)+")")
-            shape.setAttribute("class", "hand")
-            self._drawElems.appendChild(shape)
-        }
+        set time(time) {
+            while (self._drawElems.childNodes.length) { self._drawElems.removeChild(self._drawElems.childNodes[0]) }
+            if (time !== null) {
+                // TODO reusable make svg element
+                var svgns = "http://www.w3.org/2000/svg"
+                var shape = document.createElementNS(svgns, "path")
+                shape.setAttribute("d", "M0.004,0 L0,0.8 L-0.004,0 Z")
+                shape.setAttribute("transform", "rotate("+360*percentFromMidnight(time)+")")
+                shape.setAttribute("class", "hand")
+                self._drawElems.appendChild(shape)
+            }
+        },
     }
     return self
 })(),
 
+alarm_config: (function(){
+    var div = document.querySelector("#alarm-configs")
+    var self = {
+        _elem: {
+            state: div.querySelectorAll("input[name='state']"),
+            enable: div.querySelector("button[name='enable']"),
+            time: div.querySelector("input[name='time']"),
+        },
+        get state() {
+            return Array.filter(self._elem.state, function(x) { return x.checked })[0].value
+        },
+        set state(new_state) {
+            var old_state = self.state
+            if (new_state !== old_state) {
+                Array.filter(self._elem.state, function(x) { return x.value === new_state })[0].checked = true
+                // FIXME dispatch a change event
+            }
+        },
+        get time() {
+            var pre = self._elem.time.value
+            var bits = pre.split(":")
+            var hour = bits[0]
+            var minute = bits[1]
+            if (hour === undefined) {
+                return null
+            }
+            if (minute === undefined) {
+                minute = 0
+            }
+            var alarmTime = new Date()
+            alarmTime.setHours(hour, minute, 0, 0)
+            return alarmTime
+        },
+    }
+    // FIXME this event listener should go in some sort of initializer
+    self._elem.enable.addEventListener('click', function(e) {
+        e.preventDefault()
+        var state = self.state
+        if (state === "stored") {
+            self.state = "primed"
+        }
+        else if (state === "primed") {
+            self.state = "stored"
+        }
+        else if (state === "active") {}
+        else if (state === "snooze") {}
+    })
+    return self
+})(),
 
 ////// Visual Time Display //////
 
