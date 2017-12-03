@@ -34,7 +34,7 @@ document.addEventListener("PinoutReady", function () {
     })
 
     var alarmTime = new Date()
-    alarmTime.setHours(7, 30, 0, 0)
+    alarmTime.setHours(9, 30, 0, 0)
     pinout.alarm.add(alarmTime)
 
     update(new Date())
