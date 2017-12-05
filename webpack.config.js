@@ -1,10 +1,10 @@
 const path = require("path")
 
 module.exports = {
-    entry: "./src/blah.js",
+    entry: "./src/index.js",
     output: {
         filename: "bundle.js",
-        path: path.resolve(__dirname, "dist")
+        path: path.resolve(__dirname, "site")
     },
     resolve: {
         modules: [ path.resolve("./src") ],
@@ -17,7 +17,7 @@ module.exports = {
                 use: {
                     loader: "babel-loader",
                     options: {
-                        presets: ["@babel/preset-env"],
+                        presets: ["@babel/preset-env"], // TODO load polyfills for the browser
                     },
                 },
             }

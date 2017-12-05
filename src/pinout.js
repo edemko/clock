@@ -1,11 +1,30 @@
+import * as Maths from 'maths.js'
+
+export var pinout = null
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    for (const pin of [now]) {
+        pin._init()
+        delete pin._init
+        Object.freeze(pin)
+    }
+
+    pinout = thePinout()
+    document.dispatchEvent(new CustomEvent("PinoutReady"))
+})
+
+
+export const now = {
+    _elem: null,
+    _init() {
+        now._elem = document.querySelector("#now")
+    },
+}
+
+
 function thePinout() { return {
 
-now: (function (){ // DEBUG
-    var self = {
-        _elem: document.querySelector("#now"),
-    }
-    return self
-})(),
 here: (function(){
     var geolocation = document.querySelector("#geolocation")
     var coords = document.querySelector("#local-coords")
@@ -53,7 +72,7 @@ alarm: (function(){
                 var svgns = "http://www.w3.org/2000/svg"
                 var shape = document.createElementNS(svgns, "path")
                 shape.setAttribute("d", "M0.004,0 L0,0.8 L-0.004,0 Z")
-                shape.setAttribute("transform", "rotate("+360*percentFromMidnight(time)+")")
+                shape.setAttribute("transform", "rotate("+360*Maths.percentFromMidnight(time)+")")
                 shape.setAttribute("class", "hand")
                 self._drawElems.appendChild(shape)
             }
@@ -120,7 +139,7 @@ cycles: {
             _telem: document.querySelector("#dayText"),
             _elem: document.querySelector("#clock #hour"),
             set time(time) {
-                var t = percentFromMidnight(time)
+                var t = Maths.percentFromMidnight(time)
                 self._telem.textContent = t + "%"
                 self._elem.setAttribute('transform', "rotate("+ t*360 +")")
             },
@@ -145,7 +164,7 @@ cycles: {
             _telem: document.querySelector("#yearText"),
             _elem: document.querySelector("#clock #year"),
             set time(time) {
-                var t = percentFromVernalEquinox(time)
+                var t = Maths.percentFromVernalEquinox(time)
                 self._telem.textContent = t + "%"
                 self._elem.setAttribute('transform', "rotate("+t*360+")")
             },
