@@ -1,202 +1,190 @@
 import * as Maths from 'maths.js'
 
-export var pinout = null
+export {
+    now,
+    clockface,
+    alarms,
+    geolocation,
+    planisphere,
+}
+
+var pinout = null
 
 
 document.addEventListener("DOMContentLoaded", function () {
-    for (const pin of [now]) {
+    const inits = [
+        now,
+        clockface,
+        alarms,
+        geolocation,
+        planisphere,
+    ]
+    for (const pin of inits) {
         pin._init()
         delete pin._init
         Object.freeze(pin)
     }
-
-    pinout = thePinout()
     document.dispatchEvent(new CustomEvent("PinoutReady"))
 })
 
 
-export const now = {
+const now = { // DELME
     _elem: null,
     _init() {
         now._elem = document.querySelector("#now")
     },
 }
 
-
-function thePinout() { return {
-
-here: (function(){
-    var geolocation = document.querySelector("#geolocation")
-    var coords = document.querySelector("#local-coords")
-    var zenith = coords.querySelector("circle")
-    var self = {
-        _elem: geolocation,
-        _elems: [ geolocation.querySelector("input[name='lat']"), geolocation.querySelector("input[name='lon']") ],
-        get value() {
-            var lat = self._elems[0].value
-            var lon = self._elems[1].value
-            return (lat === null || lon === null) ? null : [lat, lon]
-        },
-        set value(latlon) {
-            if (latlon === null) {
-                latlon = [null, null]
-            }
-            self._elems[0].value = latlon[0]
-            self._elems[1].value = latlon[1]
-
-        },
-        draw_local_coords: function() {
-            var latlon = self.value
-            if (latlon === null) {
-                // TODO hide coordinate system
-            }
-            else {
-                var theta_z = Math.abs(latlon[0]) * (2*Math.PI/360)
-                zenith.setAttribute("cy", -0.66188*Math.cos(theta_z) / (1 + Math.sin(theta_z)))
-            }
-        }
-    }
-    return self
-})(),
-
-
-////// Alarms //////
-
-alarm: (function(){
-    var self = {
-        _drawElems: document.querySelector("#alarms"),
-        set time(time) {
-            while (self._drawElems.childNodes.length) { self._drawElems.removeChild(self._drawElems.childNodes[0]) }
-            if (time !== null) {
+const clockface = {
+    _elem: {
+        day: null,
+        year: null,
+        alarms: null,
+    },
+    _init() {
+        clockface._elem.day = document.querySelector("#clock #hour")
+        clockface._elem.year = document.querySelector("#clock #year")
+        clockface._elem.alarms = document.querySelector("#alarms")
+    },
+    set hour(datetime) {
+        const t = Maths.percentFromMidnight(datetime)
+        clockface._elem.day.setAttribute("transform", `rotate(${t*360})`)
+    },
+    set ecliptic(datetime) {
+        const t = Maths.percentFromVernalEquinox(datetime)
+        clockface._elem.year.setAttribute("transform", `rotate(${t*360})`)
+    },
+    set alarms(alarms) {
+        while (clockface._elem.alarms.childNodes.length) { clockface._elem.alarms.removeChild(clockface._elem.alarms.childNodes[0]) }
+        for (const alarm of alarms) {
+            const time = alarm.time
+            if (alarm.enabled && time !== null) {
                 // TODO reusable make svg element
                 var svgns = "http://www.w3.org/2000/svg"
                 var shape = document.createElementNS(svgns, "path")
                 shape.setAttribute("d", "M0.004,0 L0,0.8 L-0.004,0 Z")
-                shape.setAttribute("transform", "rotate("+360*Maths.percentFromMidnight(time)+")")
+                shape.setAttribute("transform", `rotate(${Maths.percentFromMidnight(time)*360})`)
                 shape.setAttribute("class", "hand")
-                self._drawElems.appendChild(shape)
+                clockface._elem.alarms.appendChild(shape)
             }
-        },
-    }
-    return self
-})(),
+        }
+    },
+}
 
-alarm_config: (function(){
-    var div = document.querySelector("#alarm-configs")
-    var self = {
-        _elem: {
+// TODO refactor this to elsewhere
+// FIXME pull out magic strings
+class Alarm { // NOTE this is just the (configurable) state machine, as represented in DOM
+    constructor(pinout) {
+        this._elem = pinout
+        Object.freeze(this)
+    }
+
+    get state() { // FIXME this is quite fast-and-loose
+        return Array.filter(this._elem.state, (x) => x.checked)[0].value // TODO is there a way in es6 to `[].filter`?
+    }
+    set _state(new_state) {
+        var old_state = this.state
+        if (new_state !== old_state) {
+            Array.filter(this._elem.state, (x) => x.value === new_state)[0].checked = true
+            // FIXME dispatch a change event
+        }
+    }
+    
+    get time() { // FIXME I don't want to have to do this much parsing, this badly
+        var pre = this._elem.time.value
+        var bits = pre.split(":")
+        var hour = bits[0]
+        var minute = bits[1]
+        if (hour === undefined) {
+            return null
+        }
+        if (minute === undefined) {
+            minute = 0
+        }
+        var alarmTime = new Date()
+        alarmTime.setHours(hour, minute, 0, 0)
+        return alarmTime
+    }
+    
+    get enabled() {
+        return (this.state === "stored") ? false : true
+    }
+    set enabled(x) {
+        if (this.state === "stored" && x) {
+            this._state = "primed"
+        }
+        else if (this.state === "primed" && !x) {
+            this._state = "stored"
+        }
+    }
+    tick() {
+        if (this.state === "primed") { this._tryToActivate() }
+        else if(this.state === "snooze") { this._tryToActivate() }
+        else {}
+    }
+    // TODO snooze
+    // TODO turn off
+    
+    _tryToActivate() {
+        const now = new Date()
+        const activeTime = this.time
+        if (now.getHours() === activeTime.getHours()
+        && now.getMinutes() === activeTime.getMinutes()) {
+            this._state = "active"
+        }
+    }
+}
+
+// TODO features for multiple alarms
+const alarms = {
+    _elems: [],
+    _init() {
+        var div = document.querySelector("#alarm-configs")
+        alarms._elems.push(new Alarm({
             state: div.querySelectorAll("input[name='state']"),
             enable: div.querySelector("button[name='enable']"),
             time: div.querySelector("input[name='time']"),
-        },
-        get state() {
-            return Array.filter(self._elem.state, function(x) { return x.checked })[0].value
-        },
-        set state(new_state) {
-            var old_state = self.state
-            if (new_state !== old_state) {
-                Array.filter(self._elem.state, function(x) { return x.value === new_state })[0].checked = true
-                // FIXME dispatch a change event
-            }
-        },
-        get time() {
-            var pre = self._elem.time.value
-            var bits = pre.split(":")
-            var hour = bits[0]
-            var minute = bits[1]
-            if (hour === undefined) {
-                return null
-            }
-            if (minute === undefined) {
-                minute = 0
-            }
-            var alarmTime = new Date()
-            alarmTime.setHours(hour, minute, 0, 0)
-            return alarmTime
-        },
-    }
-    // FIXME this event listener should go in some sort of initializer
-    self._elem.enable.addEventListener('click', function(e) {
-        e.preventDefault()
-        var state = self.state
-        if (state === "stored") {
-            self.state = "primed"
+        }))
+    },
+}
+const soundboard = null // TODO this is where I'll put the code for playback, independent of alarm configuration
+
+const geolocation = {
+     // TODO lat/lon detected by device or input by user
+    _elem: null,
+    _elems: null,
+    _init() {
+        geolocation._elem = document.querySelector("#geolocation")
+        geolocation._elems = { lat: geolocation._elem.querySelector("input[name='lat']")
+                             , lon: geolocation._elem.querySelector("input[name='lon']") }
+    },
+    get value() {
+        var lat = geolocation._elems.lat.value
+        var lon = geolocation._elems.lon.value
+        return {lat, lon}
+    },
+    // TODO set from navigator
+}
+
+const planisphere = {
+    _elem: {
+        coords: null,
+        zenith: null,
+        // TODO altitudes (alumcantars? sp?)
+    },
+    _init() {
+        planisphere._elem.coords = document.querySelector("#local-coords"),
+        planisphere._elem.zenith = planisphere._elem.coords.querySelector("circle")
+    },
+    set latlon({lat, lon}) {
+        if (lat === null) {
+            // TODO hide coordinate system
         }
-        else if (state === "primed") {
-            self.state = "stored"
+        else {
+            var theta_z = Math.abs(lat) * (2*Math.PI/360)
+            planisphere._elem.zenith.setAttribute("cy", -0.66188*Math.cos(theta_z) / (1 + Math.sin(theta_z)))
         }
-        else if (state === "active") {}
-        else if (state === "snooze") {}
-    })
-    return self
-})(),
+    },
+}
 
-////// Visual Time Display //////
-
-cycles: {
-    day: (function(){
-        var self = {
-            _telem: document.querySelector("#dayText"),
-            _elem: document.querySelector("#clock #hour"),
-            set time(time) {
-                var t = Maths.percentFromMidnight(time)
-                self._telem.textContent = t + "%"
-                self._elem.setAttribute('transform', "rotate("+ t*360 +")")
-            },
-        }
-        return self
-    })(),
-    week: (function(){
-        var self = {
-            _telem: document.querySelector("#weekText"),
-            set time(time) {
-                time = moment(time)
-                var daysFromMon = (time.day() + 6) % 7
-                var dayName = moment.weekdaysShort()[time.day()]
-
-                self._telem.textContent = daysFromMon + " (" + dayName + ")"
-            },
-        }
-        return self
-    })(),
-    year: (function(){
-        var self = {
-            _telem: document.querySelector("#yearText"),
-            _elem: document.querySelector("#clock #year"),
-            set time(time) {
-                var t = Maths.percentFromVernalEquinox(time)
-                self._telem.textContent = t + "%"
-                self._elem.setAttribute('transform', "rotate("+t*360+")")
-            },
-        }
-        return self
-    })(),
-},
-
-
-////// Linguistic Time Display //////
-
-// TODO humanized form
-classic: (function(){
-    var self = {
-        _elem: document.querySelector("#classicText"),
-        set time(time) {
-            var year = "1" + time.getFullYear()
-            var month = time.getMonth() + 1
-            var day = time.getDate()
-            var hour = time.getHours()
-            var minute = time.getMinutes()
-            var second = time.getSeconds()
-            var timezone = time.getTimezoneOffset()
-            timezone = "UTC" + (timezone < 0 ? "+" : "-") + timezone / 60
-            self._elem.textContent = year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second+" "+timezone
-        },
-    }
-    return self
-})(),
-
-
-
-
-
-}}
+// TODO humanized form of linguistic time display

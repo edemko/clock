@@ -74,29 +74,33 @@ var Pinout = _interopRequireWildcard(__webpack_require__(1));
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
 
+function runAndId(f) {
+  f();
+  return f;
+}
+
 document.addEventListener("PinoutReady", function () {
-  var sound = new Audio("tng_bridge_1.mp3"); // FIXME move into pinout
+  var theAlarm = Pinout.alarms._elems[0]; // FIXME
+
+  var sound = new Audio("tng_bridge_1.mp3"); // FIXME move into Pinout.soundboard
 
   function update(time) {
-    Pinout.pinout.cycles.day.time = time;
-    Pinout.pinout.cycles.week.time = time;
-    Pinout.pinout.cycles.year.time = time;
-    Pinout.pinout.classic.time = time;
-    var alarmTime = Pinout.pinout.alarm_config.time;
+    Pinout.clockface.hour = time;
+    Pinout.clockface.ecliptic = time; // TODO update this less often
 
-    if (alarmTime !== null && Pinout.pinout.alarm_config.state === "primed" && time.getHours() === alarmTime.getHours() && time.getMinutes() === alarmTime.getMinutes()) {
+    theAlarm.tick();
+
+    if (theAlarm.state === "active") {
       if (sound.paused) {
-        // FIXME the alarm deserves a real state machine with a real design
+        // FIXME use a soundboard
         sound.play();
       }
     }
   }
 
-  Pinout.pinout.here.draw_local_coords();
-
-  Pinout.pinout.here._elem.addEventListener("input", function () {
-    return Pinout.pinout.here.draw_local_coords();
-  });
+  Pinout.geolocation._elem.addEventListener("input", runAndId(function () {
+    return Pinout.planisphere.latlon = Pinout.geolocation.value;
+  }));
 
   Pinout.now._elem.addEventListener("click", function () {
     if (sound.paused) {
@@ -107,15 +111,29 @@ document.addEventListener("PinoutReady", function () {
     }
   });
 
-  Pinout.pinout.alarm_config._elem.time.addEventListener('input', function () {
-    return Pinout.pinout.alarm.time = Pinout.pinout.alarm_config.time;
+  theAlarm._elem.enable.addEventListener("click", function (evt) {
+    evt.preventDefault();
+    var state = self.state;
+
+    if (state === "stored") {
+      self.state = "primed";
+    } else if (state === "primed") {
+      self.state = "stored";
+    } else if (state === "active") {} else if (state === "snooze") {}
   });
 
-  Pinout.pinout.alarm.time = Pinout.pinout.alarm_config.time;
-  update(new Date());
-  window.setInterval(function () {
+  theAlarm._elem.enable.addEventListener('click', function () {
+    theAlarm.enabled = !theAlarm.enabled;
+    Pinout.clockface.alarms = [theAlarm];
+  });
+
+  theAlarm._elem.time.addEventListener('input', runAndId(function () {
+    return Pinout.clockface.alarms = [theAlarm];
+  }));
+
+  setInterval(runAndId(function () {
     return update(new Date());
-  }, 1000);
+  }), 1000);
 });
 
 /***/ }),
@@ -128,19 +146,24 @@ document.addEventListener("PinoutReady", function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.now = exports.pinout = void 0;
+exports.planisphere = exports.geolocation = exports.alarms = exports.clockface = exports.now = void 0;
 
 var Maths = _interopRequireWildcard(__webpack_require__(2));
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
 
-var pinout = null;
-exports.pinout = pinout;
-document.addEventListener("DOMContentLoaded", function () {
-  var _arr = [now];
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-  for (var _i = 0; _i < _arr.length; _i++) {
-    var pin = _arr[_i];
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var pinout = null;
+document.addEventListener("DOMContentLoaded", function () {
+  var inits = [now, clockface, alarms, geolocation, planisphere];
+
+  for (var _i = 0; _i < inits.length; _i++) {
+    var pin = inits[_i];
 
     pin._init();
 
@@ -148,208 +171,239 @@ document.addEventListener("DOMContentLoaded", function () {
     Object.freeze(pin);
   }
 
-  exports.pinout = pinout = thePinout();
   document.dispatchEvent(new CustomEvent("PinoutReady"));
 });
 var now = {
+  // DELME
   _elem: null,
   _init: function _init() {
     now._elem = document.querySelector("#now");
   }
 };
 exports.now = now;
+var clockface = {
+  _elem: {
+    day: null,
+    year: null,
+    alarms: null
+  },
+  _init: function _init() {
+    clockface._elem.day = document.querySelector("#clock #hour");
+    clockface._elem.year = document.querySelector("#clock #year");
+    clockface._elem.alarms = document.querySelector("#alarms");
+  },
 
-function thePinout() {
-  return {
-    here: function () {
-      var geolocation = document.querySelector("#geolocation");
-      var coords = document.querySelector("#local-coords");
-      var zenith = coords.querySelector("circle");
-      var self = {
-        _elem: geolocation,
-        _elems: [geolocation.querySelector("input[name='lat']"), geolocation.querySelector("input[name='lon']")],
+  set hour(datetime) {
+    var t = Maths.percentFromMidnight(datetime);
 
-        get value() {
-          var lat = self._elems[0].value;
-          var lon = self._elems[1].value;
-          return lat === null || lon === null ? null : [lat, lon];
-        },
+    clockface._elem.day.setAttribute("transform", "rotate(".concat(t * 360, ")"));
+  },
 
-        set value(latlon) {
-          if (latlon === null) {
-            latlon = [null, null];
-          }
+  set ecliptic(datetime) {
+    var t = Maths.percentFromVernalEquinox(datetime);
 
-          self._elems[0].value = latlon[0];
-          self._elems[1].value = latlon[1];
-        },
+    clockface._elem.year.setAttribute("transform", "rotate(".concat(t * 360, ")"));
+  },
 
-        draw_local_coords: function draw_local_coords() {
-          var latlon = self.value;
+  set alarms(alarms) {
+    while (clockface._elem.alarms.childNodes.length) {
+      clockface._elem.alarms.removeChild(clockface._elem.alarms.childNodes[0]);
+    }
 
-          if (latlon === null) {// TODO hide coordinate system
-          } else {
-            var theta_z = Math.abs(latlon[0]) * (2 * Math.PI / 360);
-            zenith.setAttribute("cy", -0.66188 * Math.cos(theta_z) / (1 + Math.sin(theta_z)));
-          }
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = alarms[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var _alarm = _step.value;
+        var time = _alarm.time;
+
+        if (_alarm.enabled && time !== null) {
+          // TODO reusable make svg element
+          var svgns = "http://www.w3.org/2000/svg";
+          var shape = document.createElementNS(svgns, "path");
+          shape.setAttribute("d", "M0.004,0 L0,0.8 L-0.004,0 Z");
+          shape.setAttribute("transform", "rotate(".concat(Maths.percentFromMidnight(time) * 360, ")"));
+          shape.setAttribute("class", "hand");
+
+          clockface._elem.alarms.appendChild(shape);
         }
-      };
-      return self;
-    }(),
-    ////// Alarms //////
-    alarm: function () {
-      var self = {
-        _drawElems: document.querySelector("#alarms"),
-
-        set time(time) {
-          while (self._drawElems.childNodes.length) {
-            self._drawElems.removeChild(self._drawElems.childNodes[0]);
-          }
-
-          if (time !== null) {
-            // TODO reusable make svg element
-            var svgns = "http://www.w3.org/2000/svg";
-            var shape = document.createElementNS(svgns, "path");
-            shape.setAttribute("d", "M0.004,0 L0,0.8 L-0.004,0 Z");
-            shape.setAttribute("transform", "rotate(" + 360 * Maths.percentFromMidnight(time) + ")");
-            shape.setAttribute("class", "hand");
-
-            self._drawElems.appendChild(shape);
-          }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return != null) {
+          _iterator.return();
         }
-
-      };
-      return self;
-    }(),
-    alarm_config: function () {
-      var div = document.querySelector("#alarm-configs");
-      var self = {
-        _elem: {
-          state: div.querySelectorAll("input[name='state']"),
-          enable: div.querySelector("button[name='enable']"),
-          time: div.querySelector("input[name='time']")
-        },
-
-        get state() {
-          return Array.filter(self._elem.state, function (x) {
-            return x.checked;
-          })[0].value;
-        },
-
-        set state(new_state) {
-          var old_state = self.state;
-
-          if (new_state !== old_state) {
-            Array.filter(self._elem.state, function (x) {
-              return x.value === new_state;
-            })[0].checked = true; // FIXME dispatch a change event
-          }
-        },
-
-        get time() {
-          var pre = self._elem.time.value;
-          var bits = pre.split(":");
-          var hour = bits[0];
-          var minute = bits[1];
-
-          if (hour === undefined) {
-            return null;
-          }
-
-          if (minute === undefined) {
-            minute = 0;
-          }
-
-          var alarmTime = new Date();
-          alarmTime.setHours(hour, minute, 0, 0);
-          return alarmTime;
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
         }
+      }
+    }
+  }
 
-      }; // FIXME this event listener should go in some sort of initializer
+}; // TODO refactor this to elsewhere
+// FIXME pull out magic strings
 
-      self._elem.enable.addEventListener('click', function (e) {
-        e.preventDefault();
-        var state = self.state;
+exports.clockface = clockface;
 
-        if (state === "stored") {
-          self.state = "primed";
-        } else if (state === "primed") {
-          self.state = "stored";
-        } else if (state === "active") {} else if (state === "snooze") {}
-      });
+var Alarm =
+/*#__PURE__*/
+function () {
+  // NOTE this is just the (configurable) state machine, as represented in DOM
+  function Alarm(pinout) {
+    _classCallCheck(this, Alarm);
 
-      return self;
-    }(),
-    ////// Visual Time Display //////
-    cycles: {
-      day: function () {
-        var self = {
-          _telem: document.querySelector("#dayText"),
-          _elem: document.querySelector("#clock #hour"),
+    this._elem = pinout;
+    Object.freeze(this);
+  }
 
-          set time(time) {
-            var t = Maths.percentFromMidnight(time);
-            self._telem.textContent = t + "%";
+  _createClass(Alarm, [{
+    key: "tick",
+    value: function tick() {
+      if (this.state === "primed") {
+        this._tryToActivate();
+      } else if (this.state === "snooze") {
+        this._tryToActivate();
+      } else {}
+    } // TODO snooze
+    // TODO turn off
 
-            self._elem.setAttribute('transform', "rotate(" + t * 360 + ")");
-          }
+  }, {
+    key: "_tryToActivate",
+    value: function _tryToActivate() {
+      var now = new Date();
+      var activeTime = this.time;
 
-        };
-        return self;
-      }(),
-      week: function () {
-        var self = {
-          _telem: document.querySelector("#weekText"),
+      if (now.getHours() === activeTime.getHours() && now.getMinutes() === activeTime.getMinutes()) {
+        this._state = "active";
+      }
+    }
+  }, {
+    key: "state",
+    get: function get() {
+      // FIXME this is quite fast-and-loose
+      return Array.filter(this._elem.state, function (x) {
+        return x.checked;
+      })[0].value; // TODO is there a way in es6 to `[].filter`?
+    }
+  }, {
+    key: "_state",
+    set: function set(new_state) {
+      var old_state = this.state;
 
-          set time(time) {
-            time = moment(time);
-            var daysFromMon = (time.day() + 6) % 7;
-            var dayName = moment.weekdaysShort()[time.day()];
-            self._telem.textContent = daysFromMon + " (" + dayName + ")";
-          }
+      if (new_state !== old_state) {
+        Array.filter(this._elem.state, function (x) {
+          return x.value === new_state;
+        })[0].checked = true; // FIXME dispatch a change event
+      }
+    }
+  }, {
+    key: "time",
+    get: function get() {
+      // FIXME I don't want to have to do this much parsing, this badly
+      var pre = this._elem.time.value;
+      var bits = pre.split(":");
+      var hour = bits[0];
+      var minute = bits[1];
 
-        };
-        return self;
-      }(),
-      year: function () {
-        var self = {
-          _telem: document.querySelector("#yearText"),
-          _elem: document.querySelector("#clock #year"),
+      if (hour === undefined) {
+        return null;
+      }
 
-          set time(time) {
-            var t = Maths.percentFromVernalEquinox(time);
-            self._telem.textContent = t + "%";
+      if (minute === undefined) {
+        minute = 0;
+      }
 
-            self._elem.setAttribute('transform', "rotate(" + t * 360 + ")");
-          }
-
-        };
-        return self;
-      }()
+      var alarmTime = new Date();
+      alarmTime.setHours(hour, minute, 0, 0);
+      return alarmTime;
+    }
+  }, {
+    key: "enabled",
+    get: function get() {
+      return this.state === "stored" ? false : true;
     },
-    ////// Linguistic Time Display //////
-    // TODO humanized form
-    classic: function () {
-      var self = {
-        _elem: document.querySelector("#classicText"),
+    set: function set(x) {
+      if (this.state === "stored" && x) {
+        this._state = "primed";
+      } else if (this.state === "primed" && !x) {
+        this._state = "stored";
+      }
+    }
+  }]);
 
-        set time(time) {
-          var year = "1" + time.getFullYear();
-          var month = time.getMonth() + 1;
-          var day = time.getDate();
-          var hour = time.getHours();
-          var minute = time.getMinutes();
-          var second = time.getSeconds();
-          var timezone = time.getTimezoneOffset();
-          timezone = "UTC" + (timezone < 0 ? "+" : "-") + timezone / 60;
-          self._elem.textContent = year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second + " " + timezone;
-        }
+  return Alarm;
+}(); // TODO features for multiple alarms
 
-      };
-      return self;
-    }()
-  };
-}
+
+var alarms = {
+  _elems: [],
+  _init: function _init() {
+    var div = document.querySelector("#alarm-configs");
+
+    alarms._elems.push(new Alarm({
+      state: div.querySelectorAll("input[name='state']"),
+      enable: div.querySelector("button[name='enable']"),
+      time: div.querySelector("input[name='time']")
+    }));
+  }
+};
+exports.alarms = alarms;
+var soundboard = null; // TODO this is where I'll put the code for playback, independent of alarm configuration
+
+var geolocation = {
+  // TODO lat/lon detected by device or input by user
+  _elem: null,
+  _elems: null,
+  _init: function _init() {
+    geolocation._elem = document.querySelector("#geolocation");
+    geolocation._elems = {
+      lat: geolocation._elem.querySelector("input[name='lat']"),
+      lon: geolocation._elem.querySelector("input[name='lon']")
+    };
+  },
+
+  get value() {
+    var lat = geolocation._elems.lat.value;
+    var lon = geolocation._elems.lon.value;
+    return {
+      lat: lat,
+      lon: lon
+    };
+  }
+
+};
+exports.geolocation = geolocation;
+var planisphere = {
+  _elem: {
+    coords: null,
+    zenith: null // TODO altitudes (alumcantars? sp?)
+
+  },
+  _init: function _init() {
+    planisphere._elem.coords = document.querySelector("#local-coords"), planisphere._elem.zenith = planisphere._elem.coords.querySelector("circle");
+  },
+
+  set latlon(_ref) {
+    var lat = _ref.lat,
+        lon = _ref.lon;
+
+    if (lat === null) {// TODO hide coordinate system
+    } else {
+      var theta_z = Math.abs(lat) * (2 * Math.PI / 360);
+
+      planisphere._elem.zenith.setAttribute("cy", -0.66188 * Math.cos(theta_z) / (1 + Math.sin(theta_z)));
+    }
+  }
+
+}; // TODO humanized form of linguistic time display
+
+exports.planisphere = planisphere;
 
 /***/ }),
 /* 2 */

@@ -1,27 +1,27 @@
 import * as Pinout from "pinout.js"
 
-document.addEventListener("PinoutReady", () => {
-    var sound = new Audio("tng_bridge_1.mp3") // FIXME move into pinout
+function runAndId(f) {
+    f()
+    return f
+}
 
+document.addEventListener("PinoutReady", () => {
+    const theAlarm = Pinout.alarms._elems[0] // FIXME
+    var sound = new Audio("tng_bridge_1.mp3") // FIXME move into Pinout.soundboard
 
     function update(time) {
-        Pinout.pinout.cycles.day.time = time
-        Pinout.pinout.cycles.week.time = time
-        Pinout.pinout.cycles.year.time = time
-        Pinout.pinout.classic.time = time
-        var alarmTime = Pinout.pinout.alarm_config.time
-        if (alarmTime !== null
-            && Pinout.pinout.alarm_config.state === "primed"
-            && time.getHours() === alarmTime.getHours()
-            && time.getMinutes() === alarmTime.getMinutes()) {
-            if (sound.paused) { // FIXME the alarm deserves a real state machine with a real design
+        Pinout.clockface.hour = time
+        Pinout.clockface.ecliptic = time // TODO update this less often
+
+        theAlarm.tick()
+        if (theAlarm.state === "active") {
+            if (sound.paused) { // FIXME use a soundboard
                 sound.play()
             }
         }
     }
 
-    Pinout.pinout.here.draw_local_coords()
-    Pinout.pinout.here._elem.addEventListener("input", () => Pinout.pinout.here.draw_local_coords())
+    Pinout.geolocation._elem.addEventListener("input", runAndId(() => Pinout.planisphere.latlon = Pinout.geolocation.value))
 
     Pinout.now._elem.addEventListener("click", () => {
         if (sound.paused) {
@@ -32,11 +32,25 @@ document.addEventListener("PinoutReady", () => {
             sound.currentTime = 0
         }
     })
+    theAlarm._elem.enable.addEventListener("click", (evt) => {
+        evt.preventDefault()
+        var state = self.state
+        if (state === "stored") {
+            self.state = "primed"
+        }
+        else if (state === "primed") {
+            self.state = "stored"
+        }
+        else if (state === "active") {}
+        else if (state === "snooze") {}
+    })
 
-    Pinout.pinout.alarm_config._elem.time.addEventListener('input', () => Pinout.pinout.alarm.time = Pinout.pinout.alarm_config.time)
-    Pinout.pinout.alarm.time = Pinout.pinout.alarm_config.time
+    theAlarm._elem.enable.addEventListener('click', () => {
+        theAlarm.enabled = !theAlarm.enabled
+        Pinout.clockface.alarms = [theAlarm]
+    })
+    theAlarm._elem.time.addEventListener('input', runAndId(() => Pinout.clockface.alarms = [theAlarm]))
 
-    update(new Date())
-    window.setInterval(() => update(new Date()), 1000)
+    setInterval(runAndId(() => update(new Date())), 1000)
 })
 
