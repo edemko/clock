@@ -21,10 +21,12 @@
     <div id="alarm-configs">
         <form class="alarm">
             <div>
-                <input type=radio name=state value=stored checked />
-                <input type=radio name=state value=primed />
-                <input type=radio name=state value=active />
-                <input type=radio name=state value=snooze />
+                <div><input type=radio name=state value=stored checked /> Stored</div>
+                <div><input type=radio name=state value=primed /> Primed
+                    <input type=datetime-local name=next_activate disabled />
+                </div>
+                <div><input type=radio name=state value=active /> Active</div>
+                <div><input type=radio name=state value=snooze /> Snooze</div>
             </div>
             <button name=enable>Enable</button>
             <br/>

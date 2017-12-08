@@ -84,11 +84,12 @@ document.addEventListener("PinoutReady", function () {
 
   var sound = new Audio("tng_bridge_1.mp3"); // FIXME move into Pinout.soundboard
 
-  function update(time) {
+  setInterval(runAndId(function () {
+    var time = new Date();
     Pinout.clockface.hour = time;
     Pinout.clockface.ecliptic = time; // TODO update this less often
 
-    theAlarm.tick();
+    theAlarm.tick(); // TODO update this only every ~10 seconds (at least 30 sec)
 
     if (theAlarm.state === "active") {
       if (sound.paused) {
@@ -96,13 +97,17 @@ document.addEventListener("PinoutReady", function () {
         sound.play();
       }
     }
-  }
+  }), 1000);
 
   Pinout.geolocation._elem.addEventListener("input", runAndId(function () {
     return Pinout.planisphere.latlon = Pinout.geolocation.value;
   }));
 
-  Pinout.now._elem.addEventListener("click", function () {
+  theAlarm._elem.time.addEventListener('input', runAndId(function () {
+    return Pinout.clockface.alarms = [theAlarm];
+  }));
+
+  Pinout.test_buttons._elem.a.addEventListener("click", function () {
     if (sound.paused) {
       sound.play();
     } else {
@@ -111,29 +116,11 @@ document.addEventListener("PinoutReady", function () {
     }
   });
 
-  theAlarm._elem.enable.addEventListener("click", function (evt) {
+  Pinout.test_buttons._elem.b.addEventListener('click', function (evt) {
     evt.preventDefault();
-    var state = self.state;
-
-    if (state === "stored") {
-      self.state = "primed";
-    } else if (state === "primed") {
-      self.state = "stored";
-    } else if (state === "active") {} else if (state === "snooze") {}
-  });
-
-  theAlarm._elem.enable.addEventListener('click', function () {
     theAlarm.enabled = !theAlarm.enabled;
     Pinout.clockface.alarms = [theAlarm];
   });
-
-  theAlarm._elem.time.addEventListener('input', runAndId(function () {
-    return Pinout.clockface.alarms = [theAlarm];
-  }));
-
-  setInterval(runAndId(function () {
-    return update(new Date());
-  }), 1000);
 });
 
 /***/ }),
@@ -146,21 +133,17 @@ document.addEventListener("PinoutReady", function () {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.planisphere = exports.geolocation = exports.alarms = exports.clockface = exports.now = void 0;
+exports.planisphere = exports.geolocation = exports.alarms = exports.clockface = exports.test_buttons = void 0;
 
 var Maths = _interopRequireWildcard(__webpack_require__(2));
 
+var _alarm2 = __webpack_require__(3);
+
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
-
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
 
 var pinout = null;
 document.addEventListener("DOMContentLoaded", function () {
-  var inits = [now, clockface, alarms, geolocation, planisphere];
+  var inits = [test_buttons, clockface, alarms, geolocation, planisphere];
 
   for (var _i = 0; _i < inits.length; _i++) {
     var pin = inits[_i];
@@ -173,14 +156,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
   document.dispatchEvent(new CustomEvent("PinoutReady"));
 });
-var now = {
+var test_buttons = {
   // DELME
-  _elem: null,
+  _elem: {
+    a: null,
+    b: null
+  },
   _init: function _init() {
-    now._elem = document.querySelector("#now");
+    test_buttons._elem.a = document.querySelector("#now");
+    test_buttons._elem.b = document.querySelector("#alarm-configs").querySelector("button[name='enable']");
   }
 };
-exports.now = now;
+exports.test_buttons = test_buttons;
 var clockface = {
   _elem: {
     day: null,
@@ -246,118 +233,22 @@ var clockface = {
     }
   }
 
-}; // TODO refactor this to elsewhere
-// FIXME pull out magic strings
+}; // TODO features for multiple alarms
 
 exports.clockface = clockface;
-
-var Alarm =
-/*#__PURE__*/
-function () {
-  // NOTE this is just the (configurable) state machine, as represented in DOM
-  function Alarm(pinout) {
-    _classCallCheck(this, Alarm);
-
-    this._elem = pinout;
-    Object.freeze(this);
-  }
-
-  _createClass(Alarm, [{
-    key: "tick",
-    value: function tick() {
-      if (this.state === "primed") {
-        this._tryToActivate();
-      } else if (this.state === "snooze") {
-        this._tryToActivate();
-      } else {}
-    } // TODO snooze
-    // TODO turn off
-
-  }, {
-    key: "_tryToActivate",
-    value: function _tryToActivate() {
-      var now = new Date();
-      var activeTime = this.time;
-
-      if (now.getHours() === activeTime.getHours() && now.getMinutes() === activeTime.getMinutes()) {
-        this._state = "active";
-      }
-    }
-  }, {
-    key: "state",
-    get: function get() {
-      // FIXME this is quite fast-and-loose
-      return Array.filter(this._elem.state, function (x) {
-        return x.checked;
-      })[0].value; // TODO is there a way in es6 to `[].filter`?
-    }
-  }, {
-    key: "_state",
-    set: function set(new_state) {
-      var old_state = this.state;
-
-      if (new_state !== old_state) {
-        Array.filter(this._elem.state, function (x) {
-          return x.value === new_state;
-        })[0].checked = true; // FIXME dispatch a change event
-      }
-    }
-  }, {
-    key: "time",
-    get: function get() {
-      // FIXME I don't want to have to do this much parsing, this badly
-      var pre = this._elem.time.value;
-      var bits = pre.split(":");
-      var hour = bits[0];
-      var minute = bits[1];
-
-      if (hour === undefined) {
-        return null;
-      }
-
-      if (minute === undefined) {
-        minute = 0;
-      }
-
-      var alarmTime = new Date();
-      alarmTime.setHours(hour, minute, 0, 0);
-      return alarmTime;
-    }
-  }, {
-    key: "enabled",
-    get: function get() {
-      return this.state === "stored" ? false : true;
-    },
-    set: function set(x) {
-      if (this.state === "stored" && x) {
-        this._state = "primed";
-      } else if (this.state === "primed" && !x) {
-        this._state = "stored";
-      }
-    }
-  }]);
-
-  return Alarm;
-}(); // TODO features for multiple alarms
-
-
 var alarms = {
   _elems: [],
   _init: function _init() {
     var div = document.querySelector("#alarm-configs");
 
-    alarms._elems.push(new Alarm({
-      state: div.querySelectorAll("input[name='state']"),
-      enable: div.querySelector("button[name='enable']"),
-      time: div.querySelector("input[name='time']")
-    }));
+    alarms._elems.push(new _alarm2.Alarm(div, div.querySelector("input[name='time']")));
   }
 };
 exports.alarms = alarms;
 var soundboard = null; // TODO this is where I'll put the code for playback, independent of alarm configuration
 
 var geolocation = {
-  // TODO lat/lon detected by device or input by user
+  // TODO set from navigator
   _elem: null,
   _elems: null,
   _init: function _init() {
@@ -445,6 +336,161 @@ function offsetRadiusIntersectsCircle(delta, r, phi) {
   var theta = phi + Math.asin(delta / r * Math.sin(phi));
   return [Math.cos(theta), Math.sin(theta)];
 }
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Alarm = void 0;
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+// FIXME pull out magic strings, probably into classes that can represent states
+var Alarm =
+/*#__PURE__*/
+function () {
+  function Alarm(state, time) {
+    var _this = this;
+
+    _classCallCheck(this, Alarm);
+
+    // FIXME this should only track the state, the configuration should be in its own element
+    this._elem = {
+      state: state.querySelectorAll("input[name='state']"),
+      next_activate: state.querySelector("input[name='next_activate']"),
+      time: time
+    };
+    Object.freeze(this);
+
+    this._elem.time.addEventListener('input', function () {
+      if (_this.enabled) {
+        _this._elem.next_activate.value = _this._nextActivation();
+      }
+    });
+  }
+
+  _createClass(Alarm, [{
+    key: "tick",
+    value: function tick() {
+      if (this.state === "primed") {
+        this._tryToActivate();
+      } else if (this.state === "snooze") {
+        this._tryToActivate();
+      } else {}
+    } // TODO snooze
+    // TODO turn off
+
+  }, {
+    key: "_nextActivation",
+    value: function _nextActivation() {
+      var configTime = this.time;
+
+      if (configTime === null) {
+        return null;
+      }
+
+      var now = new Date();
+      var nextAlarm = new Date(now);
+      nextAlarm.setHours(configTime.getHours(), configTime.getMinutes(), 0, 0);
+
+      if (nextAlarm < now) {
+        nextAlarm.setDate(nextAlarm.getDate() + 1);
+      }
+
+      return nextAlarm;
+    }
+  }, {
+    key: "_tryToActivate",
+    value: function _tryToActivate() {
+      var now = new Date();
+      var activeTime = new Date(this._elem.next_activate.value);
+
+      if (activeTime === null) {
+        return;
+      }
+
+      if (now >= activeTime) {
+        this._state = "active";
+      }
+    }
+  }, {
+    key: "state",
+    get: function get() {
+      // FIXME this is quite fast-and-loose
+      return Array.filter(this._elem.state, function (x) {
+        return x.checked;
+      })[0].value; // TODO is there a way in es6 to `[].filter`?
+      // TODO attach any related information to the state
+    }
+  }, {
+    key: "_state",
+    set: function set(new_state) {
+      var old_state = this.state;
+
+      if (new_state !== old_state) {
+        Array.filter(this._elem.state, function (x) {
+          return x.value === new_state;
+        })[0].checked = true; // FIXME dispatch a change event on the state radio buttons
+
+        var alarmTime = this.time;
+
+        if (new_state === "stored") {
+          this._elem.next_activate.value = null;
+        } else if (new_state === "primed" || new_state === "active") {
+          this._elem.next_activate.value = this._nextActivation();
+        } // FIXME dispatch a change event on the next_activate if required
+
+      }
+    }
+  }, {
+    key: "time",
+    get: function get() {
+      // FIXME I don't want to have to do this much parsing, this badly
+      var pre = this._elem.time.value;
+      var bits = pre.split(":");
+      var hour = bits[0];
+      var minute = bits[1];
+
+      if (hour === "") {
+        return null;
+      }
+
+      if (minute === undefined | minute === "") {
+        minute = 0;
+      }
+
+      var alarmTime = new Date();
+      alarmTime.setHours(hour, minute, 0, 0);
+      return alarmTime;
+    }
+  }, {
+    key: "enabled",
+    get: function get() {
+      return this.state === "stored" ? false : true;
+    },
+    set: function set(x) {
+      if (this.state === "stored" && x) {
+        this._state = "primed";
+      } else if (this.state === "primed" && !x) {
+        this._state = "stored";
+      }
+    }
+  }]);
+
+  return Alarm;
+}();
+
+exports.Alarm = Alarm;
 
 /***/ })
 /******/ ]);

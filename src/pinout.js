@@ -1,7 +1,8 @@
 import * as Maths from 'maths.js'
+import {Alarm} from 'alarm.js'
 
 export {
-    now,
+    test_buttons,
     clockface,
     alarms,
     geolocation,
@@ -13,7 +14,7 @@ var pinout = null
 
 document.addEventListener("DOMContentLoaded", function () {
     const inits = [
-        now,
+        test_buttons,
         clockface,
         alarms,
         geolocation,
@@ -28,10 +29,11 @@ document.addEventListener("DOMContentLoaded", function () {
 })
 
 
-const now = { // DELME
-    _elem: null,
+const test_buttons = { // DELME
+    _elem: { a: null, b: null },
     _init() {
-        now._elem = document.querySelector("#now")
+        test_buttons._elem.a = document.querySelector("#now")
+        test_buttons._elem.b = document.querySelector("#alarm-configs").querySelector("button[name='enable']")
     },
 }
 
@@ -71,86 +73,23 @@ const clockface = {
     },
 }
 
-// TODO refactor this to elsewhere
-// FIXME pull out magic strings
-class Alarm { // NOTE this is just the (configurable) state machine, as represented in DOM
-    constructor(pinout) {
-        this._elem = pinout
-        Object.freeze(this)
-    }
-
-    get state() { // FIXME this is quite fast-and-loose
-        return Array.filter(this._elem.state, (x) => x.checked)[0].value // TODO is there a way in es6 to `[].filter`?
-    }
-    set _state(new_state) {
-        var old_state = this.state
-        if (new_state !== old_state) {
-            Array.filter(this._elem.state, (x) => x.value === new_state)[0].checked = true
-            // FIXME dispatch a change event
-        }
-    }
-    
-    get time() { // FIXME I don't want to have to do this much parsing, this badly
-        var pre = this._elem.time.value
-        var bits = pre.split(":")
-        var hour = bits[0]
-        var minute = bits[1]
-        if (hour === undefined) {
-            return null
-        }
-        if (minute === undefined) {
-            minute = 0
-        }
-        var alarmTime = new Date()
-        alarmTime.setHours(hour, minute, 0, 0)
-        return alarmTime
-    }
-    
-    get enabled() {
-        return (this.state === "stored") ? false : true
-    }
-    set enabled(x) {
-        if (this.state === "stored" && x) {
-            this._state = "primed"
-        }
-        else if (this.state === "primed" && !x) {
-            this._state = "stored"
-        }
-    }
-    tick() {
-        if (this.state === "primed") { this._tryToActivate() }
-        else if(this.state === "snooze") { this._tryToActivate() }
-        else {}
-    }
-    // TODO snooze
-    // TODO turn off
-    
-    _tryToActivate() {
-        const now = new Date()
-        const activeTime = this.time
-        if (now.getHours() === activeTime.getHours()
-        && now.getMinutes() === activeTime.getMinutes()) {
-            this._state = "active"
-        }
-    }
-}
 
 // TODO features for multiple alarms
 const alarms = {
     _elems: [],
     _init() {
         var div = document.querySelector("#alarm-configs")
-        alarms._elems.push(new Alarm({
-            state: div.querySelectorAll("input[name='state']"),
-            enable: div.querySelector("button[name='enable']"),
-            time: div.querySelector("input[name='time']"),
-        }))
+        alarms._elems.push(new Alarm(
+            div,
+            div.querySelector("input[name='time']"),
+        ))
     },
 }
+
 const soundboard = null // TODO this is where I'll put the code for playback, independent of alarm configuration
 
 const geolocation = {
-     // TODO lat/lon detected by device or input by user
+    // TODO set from navigator
     _elem: null,
     _elems: null,
     _init() {
@@ -163,7 +102,6 @@ const geolocation = {
         var lon = geolocation._elems.lon.value
         return {lat, lon}
     },
-    // TODO set from navigator
 }
 
 const planisphere = {
