@@ -1,0 +1,24 @@
+npm
+babel
+webpack
+babel-loader (lets webpack use babel)
+
+
+------------
+
+webpack --watch
+
+compile es6 to es5: babel + babel-loader
+
+------------
+
+polyfills for the newest web standards:
+    babel might do that, and it seems to have something to do with preset-env
+
+what are other loaders like? why should I use/not use them?
+    eslint seems like a good candidate
+
+source map: devtools option, but I need to test it to be confident
+what are flow types in es6?
+using typescript or elm through webpack:
+    once all the DOM crap is underneath pinout, can it be that other langs don't need much to interop?
